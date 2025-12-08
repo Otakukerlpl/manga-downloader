@@ -1,0 +1,50 @@
+{
+  "name": "manga-sniffer",
+  "version": "0.1.0",
+  "description": "Minimal manga downloader CLI inspired by HakuNeko — use responsibly.",
+  "main": "electron-main.js",
+  "bin": {
+    "manga-downloader": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "start:gui": "electron .",
+    "dist": "electron-builder --win --x64",
+    "build:exe": "pkg . --targets node18-win-x64 --output bin/manga-downloader.exe"
+  },
+  "dependencies": {
+    "archiver": "^5.3.1",
+    "cheerio": "1.0.0-rc.12",
+    "node-fetch": "^2.6.7",
+    "p-limit": "^3.1.0",
+    "puppeteer": "^21.4.0",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "electron": "^25.0.0",
+    "electron-builder": "^24.6.0",
+    "electron-packager": "^17.1.2",
+    "pkg": "^5.8.1"
+  },
+  "build": {
+    "appId": "com.example.mangadownloader",
+    "productName": "Manga Downloader",
+    "files": [
+      "electron-main.js",
+      "preload.js",
+      "gui/**/*",
+      "src/**/*",
+      "package.json",
+      "node_modules/**"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
+  }
+}

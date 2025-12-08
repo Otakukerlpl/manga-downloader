@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self'">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Manga Downloader</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <div class="container">
+    <h1>โปรแกรมโหลดมังงะ</h1>
+
+    <div class="input-row">
+      <div class="form-group-flex">
+        <label for="url">ลิงก์มังงะ</label>
+        <input id="url" type="text" placeholder="https://..." autofocus />
+      </div>
+      <button id="loadBtn">โหลดข้อมูล</button>
+      <button id="start">ดาวน์โหลดทั้งหมด</button>
+    </div>
+
+    <div class="toggle-advanced" id="toggleAdvanced">ตัวเลือกเพิ่มเติม ▾</div>
+
+    <div class="advanced-options" id="advancedOptions">
+      <div class="input-row">
+        <div class="form-group-flex">
+          <label for="selector">CSS Selector</label>
+          <input id="selector" type="text" placeholder="img" />
+        </div>
+        <div class="form-group-flex">
+          <label for="output">โฟลเดอร์เก็บไฟล์</label>
+          <input id="output" type="text" value="./downloads" />
+        </div>
+      </div>
+
+      <div class="input-row">
+        <div class="form-group-flex">
+          <label for="concurrency">Connections</label>
+          <input id="concurrency" type="number" value="5" min="1" max="20" />
+        </div>
+        <div class="form-group-flex" style="display:flex; align-items:center; gap:10px; padding-top:20px;">
+          <label><input id="cbz" type="checkbox" /> รวมเล่ม (.cbz)</label>
+          <label><input id="usePuppeteer" type="checkbox" /> Puppeteer</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="gallery-container" id="galleryContainer">
+      <div class="gallery-empty">กรุณาใส่ลิงก์และกด "โหลดข้อมูล" เพื่อดูรูปตัวอย่าง</div>
+    </div>
+
+    <div class="status-bar">
+      <span id="statusText">รอคำสั่ง...</span>
+      <button id="clear"
+        style="padding:2px 10px; font-size:0.8rem; background:transparent; border:1px solid #444; color:#888;">Clear</button>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox" class="lightbox">
+      <span id="lightboxClose" class="lightbox-close">&times;</span>
+      <img id="lightboxImg" src="" />
+    </div>
+
+    <!-- Update Modal -->
+    <div id="updateModal" class="lightbox">
+      <div class="update-card">
+        <h2>มีเวอร์ชันใหม่!</h2>
+        <p id="updateMsg">เวอร์ชัน 1.2.0 พร้อมให้อัปเดตแล้ว</p>
+
+        <div id="updateProgressContainer" style="display:none; margin-bottom: 20px;">
+          <div class="progress-bar-bg">
+            <div id="updateProgressBar" class="progress-bar-fill"></div>
+          </div>
+          <div id="updateProgressText" style="margin-top:5px; color:#aaa; font-size:0.9rem;">0%</div>
+        </div>
+
+        <div class="update-actions" id="updateActions">
+          <button id="btnUpdateNow" class="btn-primary">อัปเดตเลย</button>
+          <button id="btnUpdateLater" class="btn-secondary">ไว้ทีหลัง</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./renderer.js"></script>
+</body>
+
+</html>
