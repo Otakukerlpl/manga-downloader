@@ -1,5 +1,8 @@
 name: Auto Bump Package Version
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ 'main' ]
@@ -22,13 +25,36 @@ jobs:
 
       - name: Skip if last commit was by GitHub Actions
         if: contains(steps.lastauthor.outputs.author, 'github-actions')
+        env:
+          LAST_AUTHOR: ${{ steps.lastauthor.outputs.author }}
         run: |
-          echo "Last commit authored by GitHub Actions (${ { steps.lastauthor.outputs.author } }). Skipping version bump."
+          echo "Last commit authored by GitHub Actions ($LAST_AUTHOR). Skipping version bump."
 
       - name: Bump patch version
         if: ${{ !contains(steps.lastauthor.outputs.author, 'github-actions') }}
         run: |
           node -e "const fs=require('fs');const p=require('./package.json');const v=p.version.split('.').map(Number);v[2] = (v[2]||0) + 1;p.version = v.join('.');fs.writeFileSync('package.json', JSON.stringify(p,null,2)+'\n');console.log('New version:',p.version);"
+
+      - name: Generate release notes file
+        if: ${{ !contains(steps.lastauthor.outputs.author, 'github-actions') }}
+        run: |
+          # Ensure releases dir
+          mkdir -p releases
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          NEW_VER=$(node -p "require('./package.json').version")
+          NOTE_FILE="releases/v${NEW_VER}.md"
+          echo "# v${NEW_VER}" > "$NOTE_FILE"
+          echo >> "$NOTE_FILE"
+          echo "Changes (commits):" >> "$NOTE_FILE"
+          if [ -n "$PREV_TAG" ]; then
+            git log "$PREV_TAG"..HEAD --pretty=format:'- %s (%an)' >> "$NOTE_FILE"
+          else
+            git log --pretty=format:'- %s (%an)' >> "$NOTE_FILE"
+          fi
+          echo >> "$NOTE_FILE"
+          echo "Notes:" >> "$NOTE_FILE"
+          echo "- Describe changes, additions, removals here." >> "$NOTE_FILE"
+          echo "Generated release notes: $NOTE_FILE"
 
       - name: Commit, tag and push
         if: ${{ !contains(steps.lastauthor.outputs.author, 'github-actions') }}
@@ -39,7 +65,7 @@ jobs:
           git config user.name "$GIT_COMMITTER_NAME"
           git config user.email "$GIT_COMMITTER_EMAIL"
           NEW_VER=$(node -p "require('./package.json').version")
-          git add package.json
+          git add package.json releases || true
           git commit -m "ci: bump version to ${NEW_VER} [skip ci]" || echo "No changes to commit"
           git push origin HEAD:main || echo "Push failed"
           git tag -a "v${NEW_VER}" -m "Release v${NEW_VER}" || echo "Tag exists"

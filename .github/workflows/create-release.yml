@@ -1,5 +1,8 @@
 name: Create Release on Tag
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
@@ -15,7 +18,14 @@ jobs:
       - name: Read release notes
         id: notes
         run: |
-          if [ -f RELEASE_NOTES.md ]; then
+          NOTE_FILE="releases/${GITHUB_REF_NAME}.md"
+          if [ -f "$NOTE_FILE" ]; then
+            echo "Found notes file: $NOTE_FILE"
+            echo "notes<<EOF" >> $GITHUB_OUTPUT
+            cat "$NOTE_FILE" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          elif [ -f RELEASE_NOTES.md ]; then
+            echo "Using RELEASE_NOTES.md"
             echo "notes<<EOF" >> $GITHUB_OUTPUT
             cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
