@@ -1,0 +1,35 @@
+# AppVeyor configuration to build Windows installer and publish to GitHub Releases
+# Steps to use:
+# 1. Create an AppVeyor project linked to your GitHub repo (https://ci.appveyor.com/)
+# 2. Add an environment variable named `github_token` in AppVeyor project settings
+#    with a Personal Access Token (PAT) that has `repo` and `repo:status` and `workflow` scopes (or `repo` + `public_repo` for public repos).
+# 3. Enable builds on tag push (AppVeyor supports building tags by default).
+# 4. Push a tag (e.g. v1.1.6) and AppVeyor will build and publish artifacts to GitHub Releases.
+
+image: Visual Studio 2022
+
+environment:
+  NODE_VERSION: "20"
+
+install:
+  # Install Node.js
+  - ps: Install-Product node $env:NODE_VERSION
+
+build_script:
+  - ps: npm ci
+  - ps: npx electron-builder --win nsis --x64
+
+artifacts:
+  - path: dist\**\*
+    name: dist
+
+deploy:
+  - provider: GitHub
+    auth_token: '%github_token%'
+    release: true
+    draft: false
+    prerelease: false
+    artifact: true
+    on:
+      branch: main
+      tag: true
