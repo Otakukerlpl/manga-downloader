@@ -1,0 +1,46 @@
+name: Auto Bump Package Version
+
+on:
+  push:
+    branches: [ 'main' ]
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Get last commit author
+        id: lastauthor
+        run: |
+          AUTHOR=$(git log -1 --pretty=format:'%an')
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+
+      - name: Skip if last commit was by GitHub Actions
+        if: contains(steps.lastauthor.outputs.author, 'github-actions')
+        run: |
+          echo "Last commit authored by GitHub Actions (${ { steps.lastauthor.outputs.author } }). Skipping version bump."
+
+      - name: Bump patch version
+        if: ${{ !contains(steps.lastauthor.outputs.author, 'github-actions') }}
+        run: |
+          node -e "const fs=require('fs');const p=require('./package.json');const v=p.version.split('.').map(Number);v[2] = (v[2]||0) + 1;p.version = v.join('.');fs.writeFileSync('package.json', JSON.stringify(p,null,2)+'\n');console.log('New version:',p.version);"
+
+      - name: Commit, tag and push
+        if: ${{ !contains(steps.lastauthor.outputs.author, 'github-actions') }}
+        env:
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          git config user.name "$GIT_COMMITTER_NAME"
+          git config user.email "$GIT_COMMITTER_EMAIL"
+          NEW_VER=$(node -p "require('./package.json').version")
+          git add package.json
+          git commit -m "ci: bump version to ${NEW_VER} [skip ci]" || echo "No changes to commit"
+          git push origin HEAD:main || echo "Push failed"
+          git tag -a "v${NEW_VER}" -m "Release v${NEW_VER}" || echo "Tag exists"
+          git push origin --tags || echo "Push tags failed"
