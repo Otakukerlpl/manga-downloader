@@ -41,7 +41,7 @@ app.whenReady().then(async () => {
       }, 3000);
     }
   } catch (err) {
-    console.error('Failed to check version:', err);
+    // Silent fail
   }
 
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
@@ -130,7 +130,6 @@ ipcMain.handle('perform-update', async (event) => {
 
     return { success: true };
   } catch (err) {
-    console.error('Update failed:', err);
     const win = BrowserWindow.getAllWindows()[0];
     if (win) win.webContents.send('update-progress', { percent: 0, text: 'Update failed: ' + err.message });
     return { success: false, error: err.message };

@@ -38,13 +38,10 @@ function getVersionGap(current, remote) {
 
 async function checkUpdate(currentVersion) {
     try {
-        console.log(`Checking version from: ${REMOTE_PKG_URL}`);
         const res = await fetch(REMOTE_PKG_URL);
         if (!res.ok) throw new Error('Network response was not ok');
         const remotePkg = await res.json();
         const remoteVersion = remotePkg.version;
-
-        console.log(`Current: ${currentVersion}, Remote: ${remoteVersion}`);
 
         const gap = getVersionGap(currentVersion, remoteVersion);
         const isUpdateAvailable = compareVersions(currentVersion, remoteVersion) > 0;
@@ -61,7 +58,6 @@ async function checkUpdate(currentVersion) {
             downloadUrl: 'https://github.com/Otakukerlpl/manga-downloader/releases'
         };
     } catch (err) {
-        console.error('Update check failed:', err.message);
         // Fail silently or return error state
         return { available: false, error: err.message };
     }
@@ -83,7 +79,6 @@ async function getLatestInstallerUrl() {
 
         throw new Error('No executable asset found');
     } catch (e) {
-        console.error('Error finding installer:', e);
         throw e;
     }
 }
