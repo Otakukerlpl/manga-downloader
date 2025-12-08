@@ -11,4 +11,9 @@ contextBridge.exposeInMainWorld('mangaAPI', {
   onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (e, info) => cb(info)),
   onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (e, progress) => cb(progress)),
   performUpdate: (url) => ipcRenderer.invoke('perform-update', url)
+  ,
+  // Ping updates
+  onPing: (cb) => ipcRenderer.on('ping', (e, ms) => cb(ms)),
+  startPing: (opts) => ipcRenderer.invoke('start-ping', opts),
+  stopPing: () => ipcRenderer.invoke('stop-ping')
 });

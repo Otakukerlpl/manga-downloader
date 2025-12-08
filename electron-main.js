@@ -7,6 +7,50 @@ const { checkUpdate, getLatestInstallerUrl } = require('./src/versionChecker');
 const pkg = require('./package.json');
 const fetch = require('node-fetch');
 
+// Ping loop state
+let _pingInterval = null;
+let _pingHost = 'https://www.google.com/generate_204';
+const PING_INTERVAL_MS = 5000;
+
+async function pingOnce(url, timeout = 5000) {
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    const t0 = Date.now();
+    const res = await fetch(url, { method: 'HEAD', signal: controller.signal });
+    clearTimeout(id);
+    if (!res) return -1;
+    const t1 = Date.now();
+    return t1 - t0;
+  } catch (e) {
+    return -1;
+  }
+}
+
+function startPingLoop(win, options = {}) {
+  if (_pingInterval) return;
+  if (options.host) _pingHost = options.host;
+  const interval = options.interval || PING_INTERVAL_MS;
+  // immediate ping
+  (async () => {
+    const ms = await pingOnce(_pingHost);
+    if (win && !win.isDestroyed()) win.webContents.send('ping', ms);
+  })();
+
+  _pingInterval = setInterval(async () => {
+    const ms = await pingOnce(_pingHost);
+    const w = BrowserWindow.getAllWindows()[0] || win;
+    if (w && !w.isDestroyed()) w.webContents.send('ping', ms);
+  }, interval);
+}
+
+function stopPingLoop() {
+  if (_pingInterval) {
+    clearInterval(_pingInterval);
+    _pingInterval = null;
+  }
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 950,
@@ -88,6 +132,14 @@ app.whenReady().then(async () => {
     } catch (e) { }
     callback({ Cancel: false, requestHeaders: details.requestHeaders });
   });
+
+  // Start ping loop to update renderer with latency
+  const win = BrowserWindow.getAllWindows()[0];
+  try {
+    startPingLoop(win, { host: _pingHost, interval: PING_INTERVAL_MS });
+  } catch (e) {
+    // ignore
+  }
 });
 
 app.on('window-all-closed', function () {
@@ -192,4 +244,16 @@ ipcMain.handle('perform-update', async (event) => {
     if (win) win.webContents.send('update-progress', { percent: 0, text: 'Update failed: ' + err.message });
     return { success: false, error: err.message };
   }
+});
+
+// Ping control IPC
+ipcMain.handle('start-ping', (event, opts) => {
+  const win = BrowserWindow.getAllWindows()[0];
+  startPingLoop(win, opts || {});
+  return { started: true };
+});
+
+ipcMain.handle('stop-ping', () => {
+  stopPingLoop();
+  return { stopped: true };
 });

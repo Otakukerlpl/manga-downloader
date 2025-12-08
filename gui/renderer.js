@@ -213,3 +213,25 @@ btnUpdateNow.addEventListener('click', async () => {
 btnUpdateLater.addEventListener('click', () => {
   updateModal.classList.remove('active');
 });
+
+// Ping display
+const pingText = document.getElementById('pingText');
+function showPing(ms) {
+  if (typeof ms !== 'number' || ms < 0) {
+    pingText.textContent = 'ping: -- ms';
+    pingText.style.color = '#f66';
+    return;
+  }
+  pingText.textContent = `ping: ${ms} ms`;
+  if (ms < 100) pingText.style.color = '#8fd';
+  else if (ms < 300) pingText.style.color = '#ffb86b';
+  else pingText.style.color = '#f66';
+}
+
+// Listen for ping updates from main
+window.mangaAPI.onPing((ms) => {
+  showPing(ms);
+});
+
+// Ensure ping loop started (in case main didn't auto-start)
+window.mangaAPI.startPing().catch(() => {});

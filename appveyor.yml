@@ -16,7 +16,7 @@ install:
   - ps: Install-Product node $env:NODE_VERSION
 
 build_script:
-  - ps: npm ci
+  - ps: npm install
   - ps: npx electron-builder --win nsis --x64
 
 artifacts:
