@@ -1,6 +1,7 @@
 {
-  "name": "manga-sniffer",
-  "version": "1.0.0",
+  "name": "manga-downloader",
+  "version": "1.1.2",
+  "author": "Otakukerlpl",
   "description": "Minimal manga downloader CLI inspired by HakuNeko — use responsibly.",
   "main": "electron-main.js",
   "bin": {

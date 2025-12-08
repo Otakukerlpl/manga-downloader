@@ -12,6 +12,8 @@ const argv = yargs(hideBin(process.argv))
   .option('output', { type: 'string', describe: 'Output directory', default: './downloads' })
   .option('concurrency', { type: 'number', describe: 'Concurrent downloads', default: 5 })
   .option('cbz', { type: 'boolean', describe: 'Create CBZ archive after download', default: false })
+  .option('use-puppeteer', { type: 'boolean', describe: 'Use Puppeteer (JS rendering) to extract images', default: false })
+  .option('interactive-auth', { type: 'boolean', describe: 'If using Puppeteer, open visible browser for manual login/unlock', default: false })
   .example('$0 --url "https://example.com/chapter1.html" --selector ".page img"')
   .help()
   .argv;
@@ -24,6 +26,8 @@ const argv = yargs(hideBin(process.argv))
       outDir,
       concurrency: argv.concurrency,
       makeCbz: argv.cbz,
+      usePuppeteer: !!argv['use-puppeteer'],
+      interactiveAuth: !!argv['interactive-auth'],
     });
     console.log('\nDone.');
   } catch (err) {
