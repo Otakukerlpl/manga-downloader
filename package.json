@@ -1,6 +1,6 @@
 {
   "name": "manga-downloader",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "author": "Otakukerlpl",
   "description": "Minimal manga downloader CLI inspired by HakuNeko — use responsibly.",
   "main": "electron-main.js",
