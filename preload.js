@@ -16,4 +16,6 @@ contextBridge.exposeInMainWorld('mangaAPI', {
   onPing: (cb) => ipcRenderer.on('ping', (e, ms) => cb(ms)),
   startPing: (opts) => ipcRenderer.invoke('start-ping', opts),
   stopPing: () => ipcRenderer.invoke('stop-ping')
+  ,
+  cancelInteractive: () => ipcRenderer.send('cancel-interactive')
 });

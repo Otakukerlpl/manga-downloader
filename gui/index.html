@@ -47,6 +47,41 @@
           <label><input id="usePuppeteer" type="checkbox" /> Puppeteer</label>
         </div>
       </div>
+
+      <div class="input-row" style="margin-top:10px;">
+        <div style="width:100%;">
+          <h3 style="margin:6px 0; font-size:0.95rem;">Login / Cookies (Puppeteer)</h3>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+            <label><input id="autoLogin" type="checkbox" /> พยายามล็อกอินอัตโนมัติ</label>
+            <label><input id="autoUnlock" type="checkbox" /> พยายามปลดล็อกอัตโนมัติ</label>
+            <label><input id="saveCookies" type="checkbox" /> บันทึกคุกกี้</label>
+            <label><input id="loadCookies" type="checkbox" /> โหลดคุกกี้อัตโนมัติ</label>
+            <label><input id="interactiveAuth" type="checkbox" /> เปิดหน้าต่างล็อกอินแบบโต้ตอบ (Interactive)</label>
+          </div>
+
+          <div style="display:flex; gap:10px; margin-top:8px;">
+            <input id="username" type="text" placeholder="username / email (สำหรับ auto-login)" style="flex:1" />
+            <input id="password" type="password" placeholder="password (สำหรับ auto-login)" style="flex:1" />
+            <input id="cookieFile" type="text" placeholder="(เลือกไฟล์คุกกี้ หรือเว้นว่างใช้ค่าเริ่มต้น)" style="flex:1" />
+            <input id="chromeProfile" type="text" placeholder="(พาธโปรไฟล์ Chrome เช่น %LOCALAPPDATA%\\Google\\Chrome\\User Data\\Default)" style="flex:1" />
+          </div>
+          <div style="margin-top:8px;">
+            <label style="font-size:0.9rem; color:#bbb;">Domains for auto-login (comma-separated):</label>
+            <input id="autoLoginDomains" type="text" placeholder="e.g. kaichan.co" style="width:100%; margin-top:6px;" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Auth Overlay -->
+    <div id="interactiveOverlay" class="interactive-overlay" style="display:none;">
+      <div class="interactive-card">
+        <h3 id="interactiveTitle">กรุณาดำเนินการล็อกอินในหน้าต่างที่เปิดขึ้น</h3>
+        <p id="interactiveMsg">ตอนนี้โปรแกรมเปิดเบราเซอร์ให้แล้ว — เลือกบัญชีหรือยืนยันการเข้าสู่ระบบ จากนั้นรอให้ระบบกลับมาที่หน้าเนื้อหา</p>
+        <div style="margin-top:12px; display:flex; gap:8px; justify-content:center;">
+          <button id="interactiveCancel" class="btn-secondary">ยกเลิก</button>
+        </div>
+      </div>
     </div>
 
     <div class="gallery-container" id="galleryContainer">

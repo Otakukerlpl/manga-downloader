@@ -4,9 +4,21 @@ const outputEl = document.getElementById('output');
 const concurrencyEl = document.getElementById('concurrency');
 const cbzEl = document.getElementById('cbz');
 const usePuppeteerEl = document.getElementById('usePuppeteer');
+const autoLoginEl = document.getElementById('autoLogin');
+const autoUnlockEl = document.getElementById('autoUnlock');
+const saveCookiesEl = document.getElementById('saveCookies');
+const loadCookiesEl = document.getElementById('loadCookies');
+const usernameEl = document.getElementById('username');
+const passwordEl = document.getElementById('password');
+const cookieFileEl = document.getElementById('cookieFile');
+const chromeProfileEl = document.getElementById('chromeProfile');
+const autoLoginDomainsEl = document.getElementById('autoLoginDomains');
 const loadBtn = document.getElementById('loadBtn');
 const startBtn = document.getElementById('start');
 const clearBtn = document.getElementById('clear');
+const interactiveAuthEl = document.getElementById('interactiveAuth');
+const interactiveOverlay = document.getElementById('interactiveOverlay');
+const interactiveCancel = document.getElementById('interactiveCancel');
 const statusText = document.getElementById('statusText');
 const toggleAdvanced = document.getElementById('toggleAdvanced');
 const advancedOptions = document.getElementById('advancedOptions');
@@ -69,10 +81,26 @@ loadBtn.addEventListener('click', async () => {
   galleryContainer.innerHTML = '<div class="gallery-empty" style="color:var(--primary)">กำลังตรวจจับรูปภาพ...</div>';
 
   try {
+    // show overlay if interactive auth selected
+    if (usePuppeteerEl.checked && interactiveAuthEl && interactiveAuthEl.checked) {
+      interactiveOverlay.style.display = 'flex';
+      setStatus('รอการล็อกอินในหน้าต่างที่เปิดขึ้น...');
+    }
+
     const res = await window.mangaAPI.getImages({
       url,
       selector: selectorEl.value.trim() || undefined,
-      usePuppeteer: usePuppeteerEl.checked
+      usePuppeteer: usePuppeteerEl.checked,
+      interactiveAuth: interactiveAuthEl && interactiveAuthEl.checked,
+      autoLogin: autoLoginEl.checked,
+      username: usernameEl.value.trim() || undefined,
+      password: passwordEl.value || undefined,
+      autoUnlock: autoUnlockEl.checked,
+      saveCookies: saveCookiesEl.checked,
+      loadCookies: loadCookiesEl.checked,
+      cookieFile: cookieFileEl.value.trim() || undefined,
+      chromeProfile: chromeProfileEl.value.trim() || undefined
+      ,autoLoginDomains: autoLoginDomainsEl.value.trim() || undefined
     });
 
     if (res.success) {
@@ -92,6 +120,8 @@ loadBtn.addEventListener('click', async () => {
     setStatus('Error: ' + String(err));
   } finally {
     loadBtn.disabled = false;
+    // hide overlay after attempt
+    if (interactiveOverlay) interactiveOverlay.style.display = 'none';
   }
 });
 
@@ -105,6 +135,11 @@ startBtn.addEventListener('click', async () => {
   setStatus('กำลังดาวน์โหลด...');
 
   try {
+    if (usePuppeteerEl.checked && interactiveAuthEl && interactiveAuthEl.checked) {
+      interactiveOverlay.style.display = 'flex';
+      setStatus('รอการล็อกอินในหน้าต่างที่เปิดขึ้น...');
+    }
+
     const res = await window.mangaAPI.startDownload({
       url,
       selector: selectorEl.value.trim() || undefined,
@@ -112,6 +147,16 @@ startBtn.addEventListener('click', async () => {
       concurrency: Number(concurrencyEl.value) || 5,
       cbz: cbzEl.checked,
       usePuppeteer: usePuppeteerEl.checked,
+      interactiveAuth: interactiveAuthEl && interactiveAuthEl.checked,
+      autoLogin: autoLoginEl.checked,
+      username: usernameEl.value.trim() || undefined,
+      password: passwordEl.value || undefined,
+      autoUnlock: autoUnlockEl.checked,
+      saveCookies: saveCookiesEl.checked,
+      loadCookies: loadCookiesEl.checked,
+      cookieFile: cookieFileEl.value.trim() || undefined,
+      chromeProfile: chromeProfileEl.value.trim() || undefined,
+      autoLoginDomains: autoLoginDomainsEl.value.trim() || undefined,
     });
 
     if (!res.success) {
@@ -122,6 +167,18 @@ startBtn.addEventListener('click', async () => {
   }
 });
 
+// Cancel interactive overlay
+if (interactiveCancel) {
+  interactiveCancel.addEventListener('click', () => {
+    // hide overlay and notify main (if implemented)
+    interactiveOverlay.style.display = 'none';
+    setStatus('ยกเลิกการรอการล็อกอิน');
+    if (window.mangaAPI && typeof window.mangaAPI.cancelInteractive === 'function') {
+      try { window.mangaAPI.cancelInteractive(); } catch (e) { }
+    }
+  });
+}
+
 // Listeners from backend
 window.mangaAPI.onLog((text) => {
   if (text.length < 50) setStatus(text.trim());
@@ -131,6 +188,7 @@ window.mangaAPI.onDone(() => {
   setStatus('ดาวน์โหลดเสร็จสิ้น!');
   startBtn.disabled = false;
   loadBtn.disabled = false;
+  if (interactiveOverlay) interactiveOverlay.style.display = 'none';
   alert('ดาวน์โหลดเสร็จสิ้น!');
 });
 
@@ -138,6 +196,7 @@ window.mangaAPI.onError((err) => {
   setStatus('Error: ' + err.message);
   startBtn.disabled = false;
   loadBtn.disabled = false;
+  if (interactiveOverlay) interactiveOverlay.style.display = 'none';
 });
 
 window.mangaAPI.onPreviewImage((url) => {
