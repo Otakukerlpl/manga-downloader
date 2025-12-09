@@ -197,7 +197,9 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
     } catch (e) { /* ignore */ }
     // If the site requires authentication/coins, allow the user to login interactively.
     if (options.interactiveAuth) {
-      onLog && onLog('Interactive auth enabled. A browser window is open — please complete any login/unlock actions there.\n');
+        onLog && onLog('Interactive auth enabled. A browser window is open — please complete any login/unlock actions there.\n');
+        // notify host UI that interactive auth started
+        try { if (options.onInteractiveStart) await options.onInteractiveStart(); } catch(e){}
       // For known hosts (e.g. kaichan.co) avoid a terminal Enter prompt and instead
       // wait until the page shows evidence of an authenticated session or until cookies change.
       const host = new URL(url).hostname.toLowerCase();
@@ -255,6 +257,8 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
         }
       } catch (e) {}
       await autoScroll(page);
+      // notify host UI that interactive auth finished (either success or timeout)
+      try { if (options.onInteractiveEnd) await options.onInteractiveEnd(); } catch(e){}
     }
 
     // Attempt to remove common overlays/paywall elements (non-bypass: just hide DOM overlays so images become visible)

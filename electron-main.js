@@ -166,6 +166,8 @@ ipcMain.handle('start-download', async (event, opts) => {
       interactiveTimeout: opts.interactiveTimeout,
       chromeProfile: opts.chromeProfile,
       autoLoginDomains: opts.autoLoginDomains,
+      onInteractiveStart: () => event.sender.send('interactive-start'),
+      onInteractiveEnd: () => event.sender.send('interactive-end'),
       onLog: (text) => event.sender.send('log', text),
       onImage: (url) => event.sender.send('preview-image', url)
     });
@@ -193,6 +195,8 @@ ipcMain.handle('get-images', async (event, opts) => {
       interactiveTimeout: opts.interactiveTimeout,
       chromeProfile: opts.chromeProfile,
       autoLoginDomains: opts.autoLoginDomains,
+      onInteractiveStart: () => event.sender.send('interactive-start'),
+      onInteractiveEnd: () => event.sender.send('interactive-end'),
       onLog: (text) => event.sender.send('log', text)
     });
 

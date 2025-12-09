@@ -76,10 +76,9 @@ loadBtn.addEventListener('click', async () => {
   galleryContainer.innerHTML = '<div class="gallery-empty" style="color:var(--primary)">กำลังตรวจจับรูปภาพ...</div>';
 
   try {
-    // show overlay if interactive auth selected
+    // overlay will be shown when backend signals interactive start; set status now
     if (usePuppeteerEl.checked && interactiveAuthEl && interactiveAuthEl.checked) {
-      interactiveOverlay.style.display = 'flex';
-      setStatus('รอการล็อกอินในหน้าต่างที่เปิดขึ้น...');
+      setStatus('รอการล็อกอินบนเว็บ...');
     }
 
     const res = await window.mangaAPI.getImages({
@@ -110,11 +109,9 @@ loadBtn.addEventListener('click', async () => {
     }
   } catch (err) {
     setStatus('Error: ' + String(err));
-  } finally {
-    loadBtn.disabled = false;
-    // hide overlay after attempt
-    if (interactiveOverlay) interactiveOverlay.style.display = 'none';
-  }
+    } finally {
+      loadBtn.disabled = false;
+    }
 });
 
 // Start Download
@@ -128,8 +125,7 @@ startBtn.addEventListener('click', async () => {
 
   try {
     if (usePuppeteerEl.checked && interactiveAuthEl && interactiveAuthEl.checked) {
-      interactiveOverlay.style.display = 'flex';
-      setStatus('รอการล็อกอินในหน้าต่างที่เปิดขึ้น...');
+      setStatus('รอการล็อกอินบนเว็บ...');
     }
 
     const res = await window.mangaAPI.startDownload({
@@ -187,6 +183,20 @@ window.mangaAPI.onError((err) => {
   loadBtn.disabled = false;
   if (interactiveOverlay) interactiveOverlay.style.display = 'none';
 });
+
+// Show overlay when interactive flow starts; hide when ends
+if (window.mangaAPI && typeof window.mangaAPI.onInteractiveStart === 'function') {
+  window.mangaAPI.onInteractiveStart(() => {
+    if (interactiveOverlay) interactiveOverlay.style.display = 'flex';
+    setStatus('รอการล็อกอินบนเว็บ...');
+  });
+}
+if (window.mangaAPI && typeof window.mangaAPI.onInteractiveEnd === 'function') {
+  window.mangaAPI.onInteractiveEnd(() => {
+    if (interactiveOverlay) interactiveOverlay.style.display = 'none';
+    setStatus('ดำเนินการต่อหลังการล็อกอิน...');
+  });
+}
 
 window.mangaAPI.onPreviewImage((url) => {
   setStatus(`กำลังโหลด: ...${url.slice(-20)}`);
