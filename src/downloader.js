@@ -9,6 +9,11 @@ const { promisify } = require('util');
 const { getPresetSelector } = require('./presets');
 const streamPipeline = promisify(pipeline);
 
+// Simple sleep helper (avoid relying on page.waitForTimeout which may not exist in some environments)
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // Cookie storage helpers
 function ensureCookieDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -96,7 +101,7 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
         onLog && onLog('Found login button/link, clicking...\n');
         try { await loginButtons[0].click(); await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }); } catch (e) { /* ignore */ }
         // give page a moment
-        await page.waitForTimeout(800);
+        await sleep(800);
         // attempt again to fill if possible
         for (const s of usernameSelectors) {
           const h = await page.$(s);
@@ -110,7 +115,7 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
           await page.type(unameHandle, options.username, { delay: 50 });
           await page.type(pwdHandle, options.password, { delay: 50 });
           try { await page.keyboard.press('Enter'); } catch(e){}
-          await page.waitForTimeout(800);
+          await sleep(800);
           return true;
         }
       }
@@ -129,7 +134,7 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
       const els = await page.$x(xpath);
       if (els && els.length > 0) {
         for (let i = 0; i < Math.min(els.length, 4); i++) {
-          try { await els[i].click(); await page.waitForTimeout(700); } catch (e) { }
+          try { await els[i].click(); await sleep(700); } catch (e) { }
         }
         onLog && onLog('Clicked unlock-like buttons.\n');
         return true;
@@ -240,7 +245,7 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
           // ignore transient errors while polling
         }
 
-        await page.waitForTimeout(pollInterval);
+        await sleep(pollInterval);
       }
 
       if (!authenticated) {
@@ -248,7 +253,7 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
       }
 
       // After interactive auth attempt, give page a moment to finish any post-login navigation
-      await page.waitForTimeout(1200);
+      await sleep(1200);
       // Re-navigate to ensure content is loaded
       try { await page.goto(url, { waitUntil: 'networkidle2', timeout: 15000 }); } catch (e) { /* ignore */ }
       try {
