@@ -155,6 +155,17 @@ ipcMain.handle('start-download', async (event, opts) => {
       concurrency: opts.concurrency,
       makeCbz: opts.cbz,
       usePuppeteer: opts.usePuppeteer,
+      autoLogin: opts.autoLogin,
+      username: opts.username,
+      password: opts.password,
+      autoUnlock: opts.autoUnlock,
+      saveCookies: opts.saveCookies,
+      loadCookies: opts.loadCookies,
+      cookieFile: opts.cookieFile,
+      interactiveAuth: opts.interactiveAuth,
+      interactiveTimeout: opts.interactiveTimeout,
+      chromeProfile: opts.chromeProfile,
+      autoLoginDomains: opts.autoLoginDomains,
       onLog: (text) => event.sender.send('log', text),
       onImage: (url) => event.sender.send('preview-image', url)
     });
@@ -171,6 +182,17 @@ ipcMain.handle('get-images', async (event, opts) => {
     const { imageUrls, title, cookies } = await extractImageUrls(opts.url, {
       selector: opts.selector,
       usePuppeteer: opts.usePuppeteer,
+      autoLogin: opts.autoLogin,
+      username: opts.username,
+      password: opts.password,
+      autoUnlock: opts.autoUnlock,
+      saveCookies: opts.saveCookies,
+      loadCookies: opts.loadCookies,
+      cookieFile: opts.cookieFile,
+      interactiveAuth: opts.interactiveAuth,
+      interactiveTimeout: opts.interactiveTimeout,
+      chromeProfile: opts.chromeProfile,
+      autoLoginDomains: opts.autoLoginDomains,
       onLog: (text) => event.sender.send('log', text)
     });
 

@@ -5,14 +5,9 @@ const concurrencyEl = document.getElementById('concurrency');
 const cbzEl = document.getElementById('cbz');
 const usePuppeteerEl = document.getElementById('usePuppeteer');
 const autoLoginEl = document.getElementById('autoLogin');
-const autoUnlockEl = document.getElementById('autoUnlock');
 const saveCookiesEl = document.getElementById('saveCookies');
 const loadCookiesEl = document.getElementById('loadCookies');
-const usernameEl = document.getElementById('username');
-const passwordEl = document.getElementById('password');
 const cookieFileEl = document.getElementById('cookieFile');
-const chromeProfileEl = document.getElementById('chromeProfile');
-const autoLoginDomainsEl = document.getElementById('autoLoginDomains');
 const loadBtn = document.getElementById('loadBtn');
 const startBtn = document.getElementById('start');
 const clearBtn = document.getElementById('clear');
@@ -93,14 +88,11 @@ loadBtn.addEventListener('click', async () => {
       usePuppeteer: usePuppeteerEl.checked,
       interactiveAuth: interactiveAuthEl && interactiveAuthEl.checked,
       autoLogin: autoLoginEl.checked,
-      username: usernameEl.value.trim() || undefined,
-      password: passwordEl.value || undefined,
-      autoUnlock: autoUnlockEl.checked,
       saveCookies: saveCookiesEl.checked,
       loadCookies: loadCookiesEl.checked,
       cookieFile: cookieFileEl.value.trim() || undefined,
-      chromeProfile: chromeProfileEl.value.trim() || undefined
-      ,autoLoginDomains: autoLoginDomainsEl.value.trim() || undefined
+      chromeProfile: undefined,
+      autoLoginDomains: undefined
     });
 
     if (res.success) {
@@ -149,14 +141,11 @@ startBtn.addEventListener('click', async () => {
       usePuppeteer: usePuppeteerEl.checked,
       interactiveAuth: interactiveAuthEl && interactiveAuthEl.checked,
       autoLogin: autoLoginEl.checked,
-      username: usernameEl.value.trim() || undefined,
-      password: passwordEl.value || undefined,
-      autoUnlock: autoUnlockEl.checked,
       saveCookies: saveCookiesEl.checked,
       loadCookies: loadCookiesEl.checked,
       cookieFile: cookieFileEl.value.trim() || undefined,
-      chromeProfile: chromeProfileEl.value.trim() || undefined,
-      autoLoginDomains: autoLoginDomainsEl.value.trim() || undefined,
+      chromeProfile: undefined,
+      autoLoginDomains: undefined,
     });
 
     if (!res.success) {
