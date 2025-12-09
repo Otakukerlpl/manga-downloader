@@ -11,7 +11,8 @@
     "start": "node src/cli.js",
     "start:gui": "electron .",
     "dist": "electron-builder --win --x64",
-    "build:exe": "pkg . --targets node18-win-x64 --output bin/manga-downloader.exe"
+    "build:exe": "pkg . --targets node18-win-x64 --output bin/manga-downloader.exe",
+    "cleanup:dist": "node scripts/cleanup-dist.js"
   },
   "dependencies": {
     "archiver": "^5.3.1",
