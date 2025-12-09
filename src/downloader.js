@@ -221,7 +221,14 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
       while (Date.now() - start < timeoutMs) {
         try {
           // If images matching selector appear, consider content accessible
-          const imgs = await page.$$(selector || 'img');
+          let imgs = null;
+          try {
+            imgs = await page.$$(selector || 'img');
+          } catch (e) {
+            // Execution context may be destroyed during navigation; continue polling
+            onLog && onLog('Warning while querying images (possibly navigation): ' + (e.message || e) + '\n');
+            imgs = null;
+          }
           if (imgs && imgs.length > 2) {
             onLog && onLog(`Detected ${imgs.length} images on page — assuming content is accessible after interactive auth.\n`);
             authenticated = true;
@@ -229,17 +236,32 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
           }
 
           // Check cookies: if cookie count increases or a cookie for the host appears, assume login succeeded
-          const nowCookies = await page.cookies();
-          if ((nowCookies && nowCookies.length) > (initialCookies && initialCookies.length)) {
+          let nowCookies = null;
+          try {
+            nowCookies = await page.cookies();
+          } catch (e) {
+            onLog && onLog('Warning while reading cookies (possibly navigation): ' + (e.message || e) + '\n');
+            nowCookies = null;
+          }
+          if (nowCookies && (nowCookies.length > (initialCookies && initialCookies.length))) {
             onLog && onLog(`Cookies changed (now ${nowCookies.length}) — assuming login succeeded.\n`);
             authenticated = true;
             break;
           }
 
           // If URL navigates away to a known OAuth host (accounts.google.com) we keep waiting until it returns
-          const currentUrl = page.url();
+          let currentUrl = null;
+          try {
+            currentUrl = page.url();
+          } catch (e) {
+            onLog && onLog('Warning while reading page URL (possibly navigation): ' + (e.message || e) + '\n');
+            currentUrl = null;
+          }
           if (currentUrl && currentUrl.includes('accounts.google.com')) {
             onLog && onLog('Detected OAuth flow at accounts.google.com — waiting for it to complete and return to site...\n');
+            // don't try to evaluate page content while on OAuth host
+            await sleep(pollInterval);
+            continue;
           }
         } catch (e) {
           // ignore transient errors while polling
