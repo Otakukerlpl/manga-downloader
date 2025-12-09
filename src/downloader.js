@@ -43,11 +43,62 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
   }
 
   // If a Chrome profile path is provided, use it so logged-in sessions (e.g. Google) persist.
+  // If a Chrome profile path is provided, either clone it to a temp folder or use directly.
+  // Cloning avoids conflicts with an actively-running Chrome instance.
+  let _tempProfileDir = null;
+  let _shouldCleanupProfile = false;
   if (options && options.chromeProfile) {
     try {
-      launchOpts.userDataDir = options.chromeProfile;
-      // When using an existing profile we should open non-headless so any Google consent can be completed.
-      launchOpts.headless = false;
+      const useClone = options.cloneChromeProfile !== false; // default: true
+      const srcProfile = options.chromeProfile;
+      if (useClone) {
+        // create a temp dir to copy the profile into
+        const os = require('os');
+        const crypto = require('crypto');
+        const tmpBase = path.join(os.tmpdir(), 'manga-downloader-profile');
+        if (!fs.existsSync(tmpBase)) fs.mkdirSync(tmpBase, { recursive: true });
+        _tempProfileDir = path.join(tmpBase, `profile-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`);
+        // copy directory recursively (simple implementation)
+        const copyDir = async (src, dest) => {
+          await fs.promises.mkdir(dest, { recursive: true });
+          const entries = await fs.promises.readdir(src, { withFileTypes: true });
+          for (const ent of entries) {
+            const srcPath = path.join(src, ent.name);
+            const destPath = path.join(dest, ent.name);
+            if (ent.isDirectory()) {
+              await copyDir(srcPath, destPath);
+            } else if (ent.isSymbolicLink()) {
+              try {
+                const link = await fs.promises.readlink(srcPath);
+                await fs.promises.symlink(link, destPath);
+              } catch (e) {
+                // ignore symlink errors
+              }
+            } else {
+              try {
+                await fs.promises.copyFile(srcPath, destPath);
+              } catch (e) {
+                // ignore copy errors for locked files
+              }
+            }
+          }
+        };
+
+        try {
+          onLog && onLog(`Cloning Chrome profile from ${srcProfile} -> ${_tempProfileDir} (this may take a moment)...\n`);
+          // copy asynchronously but wait before launching
+          await copyDir(srcProfile, _tempProfileDir);
+          launchOpts.userDataDir = _tempProfileDir;
+          _shouldCleanupProfile = true;
+        } catch (e) {
+          onLog && onLog('Profile clone failed, falling back to using provided profile directory directly: ' + (e && e.message ? e.message : e) + '\n');
+          launchOpts.userDataDir = srcProfile;
+          launchOpts.headless = false;
+        }
+      } else {
+        launchOpts.userDataDir = options.chromeProfile;
+        launchOpts.headless = false;
+      }
     } catch (e) {
       // ignore if invalid
     }
@@ -376,7 +427,17 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
 
     return { imgs: imgsData, cookies };
   } finally {
-    await browser.close();
+    try { await browser.close(); } catch(e) {}
+    // cleanup cloned profile if we created one
+    if (_shouldCleanupProfile && _tempProfileDir) {
+      try {
+        // use recursive rm
+        await fs.promises.rm(_tempProfileDir, { recursive: true, force: true });
+        onLog && onLog('Removed temporary profile directory ' + _tempProfileDir + '\n');
+      } catch (e) {
+        // ignore cleanup errors
+      }
+    }
   }
 }
 
