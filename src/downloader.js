@@ -218,6 +218,33 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
       let authenticated = false;
       const pollInterval = 2000;
 
+      // Helper: wait briefly for the page to stabilize and show the expected selector images
+      async function waitForStableContent(page, selector, origin, waitMs = 8000) {
+        const t0 = Date.now();
+        while (Date.now() - t0 < waitMs) {
+          try {
+            const cur = page.url();
+            if (cur && origin && cur.startsWith(origin)) {
+              // check for images matching selector that have non-empty src
+              try {
+                const imgs = await page.$$(selector || 'img');
+                if (imgs && imgs.length > 1) {
+                  // ensure at least one has a usable src
+                  const good = await page.$$eval(selector || 'img', els => els.map(e => e.getAttribute('src') || e.getAttribute('data-src') || '').filter(Boolean).length);
+                  if (good && good > 0) return true;
+                }
+              } catch (e) {
+                // ignore evaluation errors during navigation
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+          await sleep(500);
+        }
+        return false;
+      }
+
       while (Date.now() - start < timeoutMs) {
         try {
           // If images matching selector appear, consider content accessible
@@ -230,9 +257,16 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
             imgs = null;
           }
           if (imgs && imgs.length > 2) {
-            onLog && onLog(`Detected ${imgs.length} images on page — assuming content is accessible after interactive auth.\n`);
-            authenticated = true;
-            break;
+            // Wait a short time to ensure content is stable (handles Cloudflare redirects)
+            const origin = new URL(url).origin;
+            const stable = await waitForStableContent(page, selector, origin, 8000);
+            if (stable) {
+              onLog && onLog(`Detected ${imgs.length} images on page — assuming content is accessible after interactive auth.\n`);
+              authenticated = true;
+              break;
+            } else {
+              onLog && onLog('Images detected but content not yet stable; continuing to poll...\n');
+            }
           }
 
           // Check cookies: if cookie count increases or a cookie for the host appears, assume login succeeded
@@ -244,9 +278,16 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
             nowCookies = null;
           }
           if (nowCookies && (nowCookies.length > (initialCookies && initialCookies.length))) {
-            onLog && onLog(`Cookies changed (now ${nowCookies.length}) — assuming login succeeded.\n`);
-            authenticated = true;
-            break;
+            // After cookie change, wait for the origin to return and content to stabilize
+            const origin = new URL(url).origin;
+            const stable = await waitForStableContent(page, selector, origin, 8000);
+            if (stable) {
+              onLog && onLog(`Cookies changed (now ${nowCookies.length}) — assuming login succeeded.\n`);
+              authenticated = true;
+              break;
+            } else {
+              onLog && onLog('Cookies changed but content not yet stable; continuing to poll...\n');
+            }
           }
 
           // If URL navigates away to a known OAuth host (accounts.google.com) we keep waiting until it returns
