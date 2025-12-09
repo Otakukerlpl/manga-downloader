@@ -1,6 +1,6 @@
 {
   "name": "manga-downloader",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "author": "Otakukerlpl",
   "description": "Minimal manga downloader CLI inspired by HakuNeko — use responsibly.",
   "main": "electron-main.js",
@@ -14,16 +14,16 @@
     "build:exe": "pkg . --targets node18-win-x64 --output bin/manga-downloader.exe"
   },
   "dependencies": {
-    "electron-updater": "^5.3.0",
     "archiver": "^5.3.1",
     "cheerio": "1.0.0-rc.12",
+    "electron-updater": "^6.6.2",
     "node-fetch": "^2.6.7",
     "p-limit": "^3.1.0",
-    "puppeteer": "^21.4.0",
+    "puppeteer": "^24.32.1",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
-    "electron": "^25.0.0",
+    "electron": "^39.2.6",
     "electron-builder": "^24.6.0",
     "electron-packager": "^17.1.2",
     "pkg": "^5.8.1"
@@ -44,7 +44,9 @@
       "gui/**/*",
       "src/**/*",
       "package.json",
-      "node_modules/**"
+      "node_modules/**",
+      "!**/*.map",
+      "!**/*.d.ts"
     ],
     "directories": {
       "buildResources": "build"
