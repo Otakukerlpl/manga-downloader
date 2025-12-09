@@ -9,6 +9,16 @@ const { promisify } = require('util');
 const { getPresetSelector } = require('./presets');
 const streamPipeline = promisify(pipeline);
 
+// Cookie storage helpers
+function ensureCookieDir(dir) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+function cookieFileForHost(host, options) {
+  if (options && options.cookieFile) return options.cookieFile;
+  return path.join(process.cwd(), '.cookies', host + '.json');
+}
+
 // Enhanced Ad Keywords
 const AD_KEYWORDS = ['banner', 'logo', 'facebook', 'twitter', 'ads', 'advert', 'promo', 'icon', 'google', 'analytics', 'live', 'casino', 'bet', 'slot', 'game', 'gif'];
 
@@ -27,27 +37,223 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
     launchOpts.args.push('--start-maximized');
   }
 
-  const browser = await puppeteer.launch(launchOpts);
+  // If a Chrome profile path is provided, use it so logged-in sessions (e.g. Google) persist.
+  if (options && options.chromeProfile) {
+    try {
+      launchOpts.userDataDir = options.chromeProfile;
+      // When using an existing profile we should open non-headless so any Google consent can be completed.
+      launchOpts.headless = false;
+    } catch (e) {
+      // ignore if invalid
+    }
+  }
+
+  // If auto-login is requested and credentials are provided, we'll attempt to login programmatically.
+  // This is a best-effort generic approach and may not work on sites with complex flows or additional protections.
+  const tryAutoLogin = async (page) => {
+    if (!options.autoLogin) return false;
+    onLog && onLog('Auto-login enabled: attempting programmatic login if possible...\n');
+
+    try {
+      // Common username/email and password selectors
+      const usernameSelectors = ['input[name="username"]', 'input[name="user"]', 'input[name="email"]', 'input[type="email"]'];
+      const passwordSelectors = ['input[name="password"]', 'input[type="password"]'];
+      const submitSelectors = ['button[type="submit"]', 'input[type="submit"]', 'button.login', 'button.btn-login'];
+
+      // Try to find username and password fields
+      let unameHandle = null;
+      let pwdHandle = null;
+      for (const s of usernameSelectors) {
+        const h = await page.$(s);
+        if (h) { unameHandle = s; break; }
+      }
+      for (const s of passwordSelectors) {
+        const h = await page.$(s);
+        if (h) { pwdHandle = s; break; }
+      }
+
+      // If both fields found and credentials were supplied, fill and submit
+      if (unameHandle && pwdHandle && options.username && options.password) {
+        await page.type(unameHandle, options.username, { delay: 50 });
+        await page.type(pwdHandle, options.password, { delay: 50 });
+        // try common submit buttons
+        for (const s of submitSelectors) {
+          const sub = await page.$(s);
+          if (sub) {
+            try { await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }), sub.click()]); } catch (e) { try { await sub.click(); } catch(_){} }
+            onLog && onLog('Submitted login form (via selector ' + s + ')\n');
+            return true;
+          }
+        }
+        // fallback: press Enter in password field
+        try { await page.focus(pwdHandle); await page.keyboard.press('Enter'); await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }); } catch (e) { }
+        return true;
+      }
+
+      // If we couldn't find fields, try clicking obvious login links/buttons (text match)
+      const loginButtons = await page.$x("//a[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'login') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'sign in') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'เข้าสู่ระบบ')] | //button[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'login') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'sign in') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'เข้าสู่ระบบ')]");
+      if (loginButtons && loginButtons.length > 0) {
+        onLog && onLog('Found login button/link, clicking...\n');
+        try { await loginButtons[0].click(); await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }); } catch (e) { /* ignore */ }
+        // give page a moment
+        await page.waitForTimeout(800);
+        // attempt again to fill if possible
+        for (const s of usernameSelectors) {
+          const h = await page.$(s);
+          if (h) { unameHandle = s; break; }
+        }
+        for (const s of passwordSelectors) {
+          const h = await page.$(s);
+          if (h) { pwdHandle = s; break; }
+        }
+        if (unameHandle && pwdHandle && options.username && options.password) {
+          await page.type(unameHandle, options.username, { delay: 50 });
+          await page.type(pwdHandle, options.password, { delay: 50 });
+          try { await page.keyboard.press('Enter'); } catch(e){}
+          await page.waitForTimeout(800);
+          return true;
+        }
+      }
+    } catch (e) {
+      onLog && onLog('Auto-login attempt failed: ' + (e && e.message ? e.message : e) + '\n');
+    }
+    return false;
+  };
+
+  const tryAutoUnlock = async (page) => {
+    if (!options.autoUnlock) return false;
+    onLog && onLog('Auto-unlock enabled: attempting to click unlock/pay buttons...\n');
+    try {
+      // click buttons/links that contain unlock/pay keywords
+      const xpath = "//button[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'unlock') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'ปลด') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'pay') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'coin') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'buy') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'subscribe')] | //a[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'unlock') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'ปลด') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'pay') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'coin') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'buy') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'subscribe')]";
+      const els = await page.$x(xpath);
+      if (els && els.length > 0) {
+        for (let i = 0; i < Math.min(els.length, 4); i++) {
+          try { await els[i].click(); await page.waitForTimeout(700); } catch (e) { }
+        }
+        onLog && onLog('Clicked unlock-like buttons.\n');
+        return true;
+      }
+    } catch (e) {
+      onLog && onLog('Auto-unlock attempt failed: ' + (e && e.message ? e.message : e) + '\n');
+    }
+    return false;
+  };
+
+  // Determine whether auto-login/unlock is allowed for this host based on options.autoLoginDomains
+  function autoLoginAllowedForHost(host, options) {
+    try {
+      if (!options || !options.autoLoginDomains) return true; // default: allowed for all hosts
+      const raw = options.autoLoginDomains;
+      const parts = String(raw).split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      if (parts.length === 0) return true;
+      for (const p of parts) {
+        if (host === p) return true;
+        if (host.endsWith('.' + p)) return true;
+        if (host.includes(p)) return true;
+      }
+      return false;
+    } catch (e) { return false; }
+  }
+
+    const browser = await puppeteer.launch(launchOpts);
   try {
     const page = await browser.newPage();
     await page.setUserAgent('manga-sniffer/0.1');
     onLog && onLog('Opening page in headless browser...\n');
+
+    // Attempt to load saved cookies for this host (if requested or present)
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      const cookieFile = cookieFileForHost(host, options);
+      if (options && (options.loadCookies || fs.existsSync(cookieFile))) {
+        try {
+          const raw = fs.existsSync(cookieFile) ? fs.readFileSync(cookieFile, 'utf8') : null;
+          const saved = raw ? JSON.parse(raw) : [];
+          if (saved && saved.length > 0) {
+            onLog && onLog(`Loading ${saved.length} saved cookies from ${cookieFile}\n`);
+            // Navigate to origin first to set cookies for domain
+            try { await page.goto(new URL(url).origin, { waitUntil: 'domcontentloaded', timeout: 10000 }); } catch (e) { }
+            // Ensure cookie domains/paths are in proper format
+            const toSet = saved.map(c => ({ name: c.name, value: c.value, domain: c.domain, path: c.path || '/', expires: c.expires, httpOnly: !!c.httpOnly, secure: !!c.secure }));
+            try { await page.setCookie(...toSet); onLog && onLog('Cookies set on page\n'); } catch (e) { onLog && onLog('Failed to set cookies: ' + (e && e.message ? e.message : e) + '\n'); }
+          }
+        } catch (e) {
+          onLog && onLog('Failed to load cookie file: ' + (e && e.message ? e.message : e) + '\n');
+        }
+      }
+    } catch (e) { /* ignore cookie load errors */ }
+
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+    // Attempt auto-login/unlock if requested and allowed for this host
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      if (options.autoLogin && autoLoginAllowedForHost(host, options)) {
+        await tryAutoLogin(page);
+      }
+      if (options.autoUnlock && autoLoginAllowedForHost(host, options)) {
+        try { await tryAutoUnlock(page); } catch(e) { }
+      }
+    } catch (e) { /* ignore */ }
     // If the site requires authentication/coins, allow the user to login interactively.
     if (options.interactiveAuth) {
-      onLog && onLog('Interactive auth enabled. Please log in or unlock content in the opened browser.\n');
-      // Wait for user to press Enter in the terminal to continue.
-      await new Promise((resolve) => {
-        const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout });
-        rl.question('After logging in/unlocking the content in the browser, press Enter here to continue...\n', () => {
-          rl.close();
-          resolve();
-        });
-      });
-      // Give page a moment to finish any post-login navigation
+      onLog && onLog('Interactive auth enabled. A browser window is open — please complete any login/unlock actions there.\n');
+      // For known hosts (e.g. kaichan.co) avoid a terminal Enter prompt and instead
+      // wait until the page shows evidence of an authenticated session or until cookies change.
+      const host = new URL(url).hostname.toLowerCase();
+      const timeoutMs = (options.interactiveTimeout && Number(options.interactiveTimeout)) ? Number(options.interactiveTimeout) : 5 * 60 * 1000; // default 5 minutes
+
+      // initial cookie snapshot
+      let initialCookies = [];
+      try { initialCookies = await page.cookies(); } catch (e) { initialCookies = []; }
+
+      const start = Date.now();
+      let authenticated = false;
+      const pollInterval = 2000;
+
+      while (Date.now() - start < timeoutMs) {
+        try {
+          // If images matching selector appear, consider content accessible
+          const imgs = await page.$$(selector || 'img');
+          if (imgs && imgs.length > 2) {
+            onLog && onLog(`Detected ${imgs.length} images on page — assuming content is accessible after interactive auth.\n`);
+            authenticated = true;
+            break;
+          }
+
+          // Check cookies: if cookie count increases or a cookie for the host appears, assume login succeeded
+          const nowCookies = await page.cookies();
+          if ((nowCookies && nowCookies.length) > (initialCookies && initialCookies.length)) {
+            onLog && onLog(`Cookies changed (now ${nowCookies.length}) — assuming login succeeded.\n`);
+            authenticated = true;
+            break;
+          }
+
+          // If URL navigates away to a known OAuth host (accounts.google.com) we keep waiting until it returns
+          const currentUrl = page.url();
+          if (currentUrl && currentUrl.includes('accounts.google.com')) {
+            onLog && onLog('Detected OAuth flow at accounts.google.com — waiting for it to complete and return to site...\n');
+          }
+        } catch (e) {
+          // ignore transient errors while polling
+        }
+
+        await page.waitForTimeout(pollInterval);
+      }
+
+      if (!authenticated) {
+        onLog && onLog('Interactive auth timed out (no detected cookies or images). You can retry with a longer timeout or use a Chrome profile/cookie file.\n');
+      }
+
+      // After interactive auth attempt, give page a moment to finish any post-login navigation
       await page.waitForTimeout(1200);
       // Re-navigate to ensure content is loaded
       try { await page.goto(url, { waitUntil: 'networkidle2', timeout: 15000 }); } catch (e) { /* ignore */ }
+      try {
+        if (options.autoUnlock && autoLoginAllowedForHost(host, options)) {
+          try { await tryAutoUnlock(page); } catch(e) { }
+        }
+      } catch (e) {}
       await autoScroll(page);
     }
 
@@ -78,6 +284,23 @@ async function fetchImageUrlsWithPuppeteer(url, selector, onLog, options = {}) {
 
     // Capture cookies
     const cookies = await page.cookies();
+
+    // Optionally save cookies for reuse
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      const cookieFile = cookieFileForHost(host, options);
+      if (options && options.saveCookies) {
+        ensureCookieDir(path.dirname(cookieFile));
+        try {
+          fs.writeFileSync(cookieFile, JSON.stringify(cookies, null, 2), 'utf8');
+          onLog && onLog(`Saved ${cookies.length} cookies to ${cookieFile}\n`);
+        } catch (e) {
+          onLog && onLog('Failed to save cookies: ' + (e && e.message ? e.message : e) + '\n');
+        }
+      }
+    } catch (e) {
+      // ignore save cookie errors
+    }
 
     return { imgs: imgsData, cookies };
   } finally {
