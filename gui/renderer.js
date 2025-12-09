@@ -76,9 +76,11 @@ loadBtn.addEventListener('click', async () => {
   galleryContainer.innerHTML = '<div class="gallery-empty" style="color:var(--primary)">กำลังตรวจจับรูปภาพ...</div>';
 
   try {
-    // overlay will be shown when backend signals interactive start; set status now
+    // If interactive login selected, show overlay immediately and mark active
     if (usePuppeteerEl.checked && interactiveAuthEl && interactiveAuthEl.checked) {
+      if (interactiveOverlay) interactiveOverlay.style.display = 'flex';
       setStatus('รอการล็อกอินบนเว็บ...');
+      window._interactiveActive = true;
     }
 
     const res = await window.mangaAPI.getImages({
@@ -111,6 +113,10 @@ loadBtn.addEventListener('click', async () => {
     setStatus('Error: ' + String(err));
     } finally {
       loadBtn.disabled = false;
+      // keep overlay visible until backend signals interactive-end or user cancels
+      if (!window._interactiveActive) {
+        if (interactiveOverlay) interactiveOverlay.style.display = 'none';
+      }
     }
 });
 
@@ -125,7 +131,9 @@ startBtn.addEventListener('click', async () => {
 
   try {
     if (usePuppeteerEl.checked && interactiveAuthEl && interactiveAuthEl.checked) {
+      if (interactiveOverlay) interactiveOverlay.style.display = 'flex';
       setStatus('รอการล็อกอินบนเว็บ...');
+      window._interactiveActive = true;
     }
 
     const res = await window.mangaAPI.startDownload({
@@ -173,7 +181,11 @@ window.mangaAPI.onDone(() => {
   setStatus('ดาวน์โหลดเสร็จสิ้น!');
   startBtn.disabled = false;
   loadBtn.disabled = false;
-  if (interactiveOverlay) interactiveOverlay.style.display = 'none';
+  // hide overlay on done
+  if (interactiveOverlay) {
+    interactiveOverlay.style.display = 'none';
+    window._interactiveActive = false;
+  }
   alert('ดาวน์โหลดเสร็จสิ้น!');
 });
 
@@ -181,7 +193,8 @@ window.mangaAPI.onError((err) => {
   setStatus('Error: ' + err.message);
   startBtn.disabled = false;
   loadBtn.disabled = false;
-  if (interactiveOverlay) interactiveOverlay.style.display = 'none';
+  // hide overlay on error unless interactive still active
+  if (interactiveOverlay && !window._interactiveActive) interactiveOverlay.style.display = 'none';
 });
 
 // Show overlay when interactive flow starts; hide when ends
@@ -189,12 +202,14 @@ if (window.mangaAPI && typeof window.mangaAPI.onInteractiveStart === 'function')
   window.mangaAPI.onInteractiveStart(() => {
     if (interactiveOverlay) interactiveOverlay.style.display = 'flex';
     setStatus('รอการล็อกอินบนเว็บ...');
+    window._interactiveActive = true;
   });
 }
 if (window.mangaAPI && typeof window.mangaAPI.onInteractiveEnd === 'function') {
   window.mangaAPI.onInteractiveEnd(() => {
     if (interactiveOverlay) interactiveOverlay.style.display = 'none';
     setStatus('ดำเนินการต่อหลังการล็อกอิน...');
+    window._interactiveActive = false;
   });
 }
 
